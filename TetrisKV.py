@@ -1,3 +1,8 @@
+'''<div>Icons made by <a href="https://www.flaticon.com/authors/freepik" title="Freepik">Freepik</a> 
+from <a href="https://www.flaticon.com/" 
+title="Flaticon">www.flaticon.com</a></div>'''
+
+
 from kivy.app import App
 from kivy.uix.label import Label
 from kivy.uix.boxlayout import BoxLayout
@@ -16,6 +21,7 @@ import random
 class GameWindow(FloatLayout):
     def __init__(self, left, right, **kwargs):
         super(GameWindow, self).__init__(**kwargs)
+        self.next_num = None
         self.proper_colors = []
         self.current_index = []
         self.static_colored = []
@@ -23,10 +29,23 @@ class GameWindow(FloatLayout):
         self.keyboard = Window.request_keyboard(None, self)
         self.score_window = left
         self.score = 0
-        self.game_speed = 0.3
         self.level = 0
+        self.game_speed = 0.3
+        self.img = Image(size_hint_y = 1)
         self.score_label = Label(text = f"Score: {self.score} \nLevel: {self.level//300}", font_size = "20sp")
+        self.firstname_label = Label(font_size = "30sp",halign = "center", valign = "bottom")
+        self.lastname_label = Label(font_size = "30sp", halign = "center", valign = "top")
+        self.firstname_label.text_size = self.firstname_label.size
+        self.lastname_label.text_size = self.lastname_label.size
+        self.next_figure_window = NextFigureWindow()
+        self.score_window.add_widget(self.next_figure_window)
+        self.score_window.add_widget(self.firstname_label)
+        self.score_window.add_widget(self.lastname_label)
+        self.score_window.add_widget(self.img)
         self.score_window.add_widget(self.score_label)
+       
+        
+        self.score_window.padding = (50,50)
         self.game_over_screen = GameOver(size_hint = (1,1), pos_hint= {"x": 0, "y": 0})
 
         #If you want to change the color of main screen
@@ -36,8 +55,31 @@ class GameWindow(FloatLayout):
         self.bind(size=self.update_rect)
 
         self.draw_grid()
-        self.create_figure()
+
+        self.leaderboard_box = BoxLayout(orientation = "vertical", padding = (0,0,0,200))
+        self.leaderboard = GridLayout(cols = 3)
+        self.sound_btn = Button(text = "Music on", size_hint_y = 0.5)
+        self.pause_btn = Button(text = "Pause", size_hint_y = 0.5)
+        self.pause_btn.bind(on_press = self.pause)
+        self.back_btn = Button(text = "Back", size_hint_y = 0.5)
+        self.leaderboard.add_widget(self.sound_btn)
+        self.leaderboard.add_widget(self.pause_btn)
+        self.leaderboard.add_widget(self.back_btn)
+        self.leaderboard.add_widget(Label(text = "Position"))
+        self.leaderboard.add_widget(Label(text = "Name"))
+        self.leaderboard.add_widget(Label(text = "Highscore"))
+        self.leaderboard_box.add_widget(self.leaderboard)       
+
+        self.table_box = BoxLayout(size_hint_y = 2)
+        self.pos_box = BoxLayout(orientation = "vertical", size_hint_x = 0.5)
+        self.name_box = BoxLayout(orientation = "vertical")
+        self.score_box = BoxLayout(orientation = "vertical", size_hint_x = 0.5)
+        self.table_box.add_widget(self.pos_box)
+        self.table_box.add_widget(self.name_box)
+        self.table_box.add_widget(self.score_box)
+        self.leaderboard_box.add_widget(self.table_box)
         self.right_window = right
+        self.right_window.add_widget(self.leaderboard_box)
 
     def update_rect(self, *args):
         self.rect.pos = self.pos
@@ -208,7 +250,17 @@ class GameWindow(FloatLayout):
         self.game_speed = 0.3
         self.level = 0
         self.static_colored = []
+        self.next_num = None
         
+    def pause(self, instance):
+        if instance.text == "Pause":
+            instance.text = "Play"
+            self.event.cancel()
+            self.keyboard.unbind(on_key_down=self.on_keyboard_down)
+        else:
+            instance.text = "Pause"
+            self.event = Clock.schedule_interval(lambda dt: self.play(), self.game_speed)
+            self.keyboard.bind(on_key_down=self.on_keyboard_down)
 
     def play(self):
         self.check_score()
@@ -228,7 +280,7 @@ class GameWindow(FloatLayout):
             else:
                 self.game_over()
 
-    def create_figure(self):
+    def define_next_figure(self):
         s_x = random.randint(2,7)
         s_y = 22
         t_shape = [(s_x, s_y), (s_x, s_y+1), (s_x +1, s_y), (s_x -1, s_y), (s_x, s_y)]
@@ -239,11 +291,20 @@ class GameWindow(FloatLayout):
         sq_shape = [(s_x, s_y), (s_x+1, s_y+1), (s_x , s_y+1), (s_x+1 , s_y), (s_x , s_y)]
         line_shape = [(s_x, s_y), (s_x, s_y-1), (s_x , s_y+1), (s_x , s_y+2), (s_x , s_y)]
         self.all_shapes = [t_shape, l1_shape, l2_shape, z1_shape, z2_shape, line_shape, sq_shape]
-        self.current_num = random.randint(0,6)
-        shape = self.all_shapes[self.current_num-1]        
-        self.current_figure = shape
+        if self.next_num == None:
+            self.current_num = random.randint(0,6)
+        else:
+            self.current_num = self.next_num
+        self.shape = self.all_shapes[self.current_num-1]        
+        self.current_figure = self.shape
+        
+
+    def create_figure(self):
         self.event = Clock.schedule_interval(lambda dt: self.play(), self.game_speed)
+        self.define_next_figure()
+        self.next_num = random.randint(0,6)
         self.keyboard.bind(on_key_down=self.on_keyboard_down)
+        self.next_figure_window.draw_shape(self.next_num-1)
 
     def on_keyboard_down(self, keyboard, keycode, text, modifiers):
         self.move_side(keycode[1])
@@ -279,17 +340,55 @@ class GameOver(BoxLayout):
         self.orientation = "vertical"
         self.gg_label = Label(text = "Game Over", font_size = "20sp")
         self.score_label = Label(text = f"Your score:", font_size = "20sp")
-        self.restart_btn = Button(text = "Restart", font_size = "20sp")
+        self.restart_btn = Button(text = "Restart", font_size = "20sp", size_hint_y = 0.2)
         self.restart_btn.bind(on_press = self.restart)
         self.add_widget(self.gg_label)
         self.add_widget(self.restart_btn)
         self.add_widget(self.score_label)
+        self.padding = (100,100)
         
 
     def update(self):
-        self.restart_btn.background_color = (0,1,1,1)
-        self.score_label.text = f"Your score: {self.parent.score}"
+        self.current_score = self.parent.score
+        violet = (102/255,0,204/255,1)
+        self.restart_btn.background_color = (violet[0],violet[1],violet[2],1)
+        self.score_label.text = f"Your score: {self.current_score}"
     def restart(self, instance):
+        self.parent.parent.parent.parent.db.update_score(self.current_score)
+        self.parent.parent.parent.parent.create_leaderboard()
         self.parent.create_figure()
         self.parent.remove_widget(self)
+
+class NextFigureWindow(BoxLayout):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args,**kwargs)
+        self.grid = GridLayout(cols = 6, rows = 5)
+        self.add_widget(self.grid)
+        with self.canvas.before:
+            Color(0,0,0,1)
+            self.rect = Rectangle(size = self.size, pos = self.pos)
+        self.bind(size = self.update_rect)
+        for i in range(0, 30):
+            btn = MyCol()
+            self.grid.add_widget(btn)
+
+    def update_rect(self, *args):
+        self.rect.pos = self.pos
+        self.rect.size = self.size
+    
+    def draw_shape(self, shape):
+        self.proper_colors = self.parent.parent.proper_colors
+        for btn in self.grid.children:
+            btn.uncolor()
+        t_shape = [21,15,9,14]
+        l1_shape = [21,20,14,8]
+        l2_shape = [9,15,21,20]
+        z1_shape = [21,8,14,15]
+        z2_shape = [20,15,9,14]
+        sq_shape = [9,8,15,14]
+        line_shape = [16,15,14,13]
+        all_shapes = [t_shape, l1_shape, l2_shape, z1_shape, z2_shape, line_shape, sq_shape]
+        next_shape = all_shapes[shape]
+        for index in next_shape:
+            self.grid.children[index].colored(shape+1)
 
